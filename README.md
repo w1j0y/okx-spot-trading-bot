@@ -135,8 +135,8 @@ Email notifications are **disabled by default**.
 ### Clone the Repository
 
 ```
-git clone https://github.com/w1j0y/okx-dip-buy-bot.git
-cd okx-dip-buy-bot
+git clone https://github.com/w1j0y/okx-spot-trading-bot.git
+cd okx-spot-trading-bot
 ```
 
 ### Create a Virtual Environment (Recommended)
