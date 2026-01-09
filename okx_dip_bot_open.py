@@ -654,14 +654,23 @@ def check_and_place_profit_sell():
     avg_cost = stats["total_spent"] / stats["total_btc"]
     df = get_klines_okx(instId, interval_okx, limit=2)
     current_price = df["close"].iloc[-1]
+
+    # Minimum profit threshold
     target_price = avg_cost * (1 + PROFIT_TARGET_PCT)
 
     if current_price >= target_price:
+        # SELL ABOVE current market, not at avg-based target
+        sell_price = current_price * SELL_PRICE_BUFFER
+
         logging.info(
             f"💰 PROFIT TARGET HIT — placing SELL | "
-            f"avg={avg_cost:.6f}, target={target_price:.6f}, current={current_price:.6f}"
+            f"avg={avg_cost:.6f}, "
+            f"min_target={target_price:.6f}, "
+            f"sell_price={sell_price:.6f}, "
+            f"current={current_price:.6f}"
         )
-        place_limit_sell_all(target_price)
+
+        place_limit_sell_all(sell_price)
 
 def check_and_reset_cycle():
     asset_balance = get_asset_balance(base_ccy)
