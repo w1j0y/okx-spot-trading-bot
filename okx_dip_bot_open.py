@@ -3,7 +3,7 @@
 # - Plain-text config.json (no Fernet/KDF)
 # - Supports any SPOT *-USDT pair via config instId
 # - Limit buy ladder + last-buy-price enforcement
-# - Profit sell on full stack (+ cycle reset)
+# - Profit sell on full stack (+ cycle reset)    
 # - CSV trade log + optional email notifications + weekly report
 
 import os
@@ -710,6 +710,8 @@ def check_and_reset_cycle():
 
     if asset_balance < 0.00005 and not buy_order_id and not sell_order_id and not has_live_order:
         stage = read_buy_stage()
+        if stage >= len(portions):
+            return # HOLDING after full ladder — never reset
         if stage > 0:
             logging.info(f"🔁 Balance={asset_balance:.8f}, no open orders — resetting cycle.")
             write_buy_stage(0)
@@ -774,7 +776,7 @@ def main():
             order_id, order_ts = read_pending_order()
 
             if order_id and current_stage == 0 and order_ts:
-                order_time = datetime.strptime(order_ts, "%Y-%m-%d %H:%M:%S UTC")
+                order_time = datetime.strptime(order_ts, "%Y-%m-%d %H:%M:%S UTC").replace(tzinfo=timezone.utc)
                 age = datetime.now(timezone.utc) - order_time
 
                 if age >= timedelta(days=3):
