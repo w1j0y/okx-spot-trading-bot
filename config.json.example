@@ -2,11 +2,7 @@
   "okx": {
     "api_key": "YOUR_OKX_API_KEY",
     "api_secret": "YOUR_OKX_API_SECRET",
-    "passphrase": "YOUR_OKX_API_PASSPHRASE",
-    // For US users
-    // "domain": "https://us.okx.com"
-    // For EEA users
-    // "domain": "https://eea.okx.com"
+    "passphrase": "YOUR_OKX_API_PASSPHRASE"
   },
   "trade": {
     "instId": "BTC-USDT",
