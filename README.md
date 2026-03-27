@@ -4,6 +4,8 @@ This repository contains the exact trading execution bot I personally run on OKX
 
 It is open-sourced for **transparency, auditability, and trust** — so anyone can review how trades are executed, how risk is managed, and how capital is allocated.
 
+**Live Results:** 90+ days running, 70+ completed cycles, 0 stuck positions. [View verified trade history and results →](https://crypto.rycron.com)
+
 ## ⚠️ Disclaimer
 
 This project is **not financial advice**. You are fully responsible for your own risk, configuration, and capital.
@@ -67,7 +69,7 @@ A BUY is considered only when **multiple conditions align**, including:
 - Strong red (dip) candles
 - Bullish engulfing patterns (recovery signals)
 
-#### Progressive Requirements (NEW in v2)
+#### Progressive Requirements
 
 The bot uses **progressive drop requirements** — later stages require larger price drops before buying:
 
@@ -86,7 +88,7 @@ The bot uses **progressive drop requirements** — later stages require larger p
 
 ---
 
-### Crash Detection Mode (NEW in v2)
+### Crash Detection Mode
 
 The bot automatically detects **market crashes** and becomes more conservative:
 
@@ -112,6 +114,17 @@ The bot automatically detects **market crashes** and becomes more conservative:
 
 **Crash Mode Deactivates When:**
 - Price recovers **≥ 5%** from the recent low
+
+---
+
+### Stale Sell Order Timeout
+
+If a SELL order remains unfilled for **8+ hours**, the bot automatically:
+- Cancels the stale order
+- Resumes monitoring for new profit targets
+- Sends an email notification (if enabled)
+
+This prevents the bot from being stuck waiting for an unreachable price.
 
 ---
 
@@ -163,6 +176,7 @@ It is designed for **low, steady, repeatable gains**.
 | **Crash Detection** | Automatically detects 10%+ drops and becomes more conservative |
 | **Progressive Drop Requirements** | Later stages require larger price drops (2% → 5%) |
 | **Progressive Signal Requirements** | Later stages require stronger signals (2.5 → 4.5 score) |
+| **Stale Sell Timeout** | Auto-cancels SELL orders stuck for 8+ hours |
 | **Multi-Currency Support** | Works with any quote currency (USDT, USDC, etc.) |
 | **Enhanced Signals** | Added deep RSI, volume capitulation, bullish engulfing detection |
 | **SELL on 5m Candles** | Faster profit-taking during quick bounces |
@@ -194,6 +208,7 @@ The bot can send email notifications for:
 - Filled BUY orders
 - Filled SELL orders
 - Crash Mode activation/deactivation
+- Stale sell order cancellations
 - Weekly reports (CSV attached)
 
 ### Email Security Note
@@ -286,6 +301,16 @@ The bot will:
 
 ---
 
+## Need Help With Deployment?
+
+If you'd like guided assistance setting up the bot on your own VPS:
+
+**[crypto.rycron.com](https://crypto.rycron.com)** — Verified results, setup options, and documentation.
+
+All sessions are screen-share only. Your API keys never leave your hands.
+
+---
+
 ## Configuration Parameters
 
 ### Strategy Parameters (Hardcoded)
@@ -295,6 +320,7 @@ The bot will:
 | `LIMIT_PRICE_OFFSET` | 0.995 | Buy limit placed 0.5% below market |
 | `PROFIT_TARGET_PCT` | 0.0025 | 0.25% profit target for sells |
 | `SELL_CHECK_INTERVAL` | 300s | Check sell conditions every 5 minutes |
+| `SELL_ORDER_TIMEOUT_HOURS` | 8 | Cancel stale SELL after 8 hours |
 | `CRASH_THRESHOLD_PCT` | 0.10 | 10% drop triggers crash mode |
 | `CRASH_MODE_EXTRA_DROP` | 0.02 | Extra 2% drop required in crash mode |
 | `CRASH_MODE_EXTRA_SCORE` | 1.0 | Extra signal score in crash mode |
@@ -335,22 +361,15 @@ This project is ideal if you:
 - Understand basic crypto risks
 - Want **execution discipline** instead of emotions
 
-If you prefer hands-off deployment, monitoring, updates, and support, a managed Telegram version is available.
-
 ---
 
-## Support, Contact, and Referral (Optional)
+## Support & Contact
 
-If you find this project useful and want to support development:
+**GitHub Issues:** For bugs and feature requests
 
-**OKX referral link (optional):**
-https://www.okx.com/join/50798543
+**Email:** contact@rycron.com
 
-**For onboarding or managed deployment:**
-- Telegram: @w1j0y
-- Email: contact@rycron.com
-
-Nothing is forced. No hidden fees. No locked logic.
+**OKX Referral (optional):** https://www.okx.com/join/50798543
 
 ---
 
@@ -358,13 +377,16 @@ Nothing is forced. No hidden fees. No locked logic.
 
 - This code is open so you can **verify exactly** how trades are executed
 - You are free to study, modify, and run it yourself
-- You are also free to contact me if you prefer a managed setup
-
-**Transparency first. Discipline over hype.**
+- Transparency first. Discipline over hype.
 
 ---
 
 ## Changelog
+
+### v2.1.0 (2026-03)
+- Added **Stale Sell Order Timeout** (auto-cancels after 8 hours)
+- Improved tuple unpacking for pending order management
+- Better error handling for order state checks
 
 ### v2.0.0 (2026-02)
 - Added **Crash Detection Mode** (10% drop triggers conservative mode)
