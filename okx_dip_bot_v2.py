@@ -5,6 +5,7 @@
 # - Limit buy ladder + progressive drop requirements
 # - Crash detection + capital preservation mode
 # - Profit sell on full stack (+ cycle reset)
+# - Stale sell order timeout (8 hours)
 # - CSV trade log + optional email notifications + weekly report
 
 import os
@@ -57,6 +58,7 @@ PROFIT_TARGET_PCT = 0.0025    # 0.25% over avg cost
 SELL_PRICE_BUFFER = 1.0005
 SELL_INTERVAL_OKX = "5m"
 SELL_CHECK_INTERVAL = 300     # Check sell every 5 minutes
+SELL_ORDER_TIMEOUT_HOURS = 8  # Cancel unfilled SELL after 8 hours
 
 # Progressive drop requirements per stage
 STAGE_DROP_REQUIREMENTS = {
@@ -752,14 +754,18 @@ def read_pending_sell():
     try:
         with open(sell_order_file, "r") as f:
             data = json.load(f)
-            return data.get("order_id"), data.get("price")
+            return data.get("order_id"), data.get("price"), data.get("timestamp")
     except Exception:
-        return None, None
+        return None, None, None
 
 
 def write_pending_sell(order_id: str, price: float):
     with open(sell_order_file, "w") as f:
-        json.dump({"order_id": order_id, "price": price}, f)
+        json.dump({
+            "order_id": order_id,
+            "price": price,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }, f)
 
 
 def clear_pending_sell():
@@ -796,7 +802,7 @@ def cancel_pending_order():
 
 
 def cleanup_stale_pending_sell():
-    order_id, _ = read_pending_sell()
+    order_id, _, _ = read_pending_sell()
     if not order_id:
         return
 
@@ -813,6 +819,59 @@ def cleanup_stale_pending_sell():
 
     except Exception:
         clear_pending_sell()
+
+
+def cancel_stale_sell_order():
+    """
+    Cancel SELL order if it's been open too long.
+    Returns True if a stale order was cancelled, False otherwise.
+    """
+    order_id, price, timestamp = read_pending_sell()
+    if not order_id or not timestamp:
+        return False
+    
+    try:
+        order_time = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+        age = datetime.now(timezone.utc) - order_time
+        age_hours = age.total_seconds() / 3600
+        
+        if age_hours >= SELL_ORDER_TIMEOUT_HOURS:
+            # Verify order is still open before cancelling
+            res = tradeAPI.get_order(instId=instId, ordId=order_id)
+            data = res.get("data", [{}])[0]
+            state = data.get("state")
+            
+            if state in ("live", "partially_filled"):
+                tradeAPI.cancel_order(instId=instId, ordId=order_id)
+                logging.warning(
+                    f"⏰ SELL order {order_id} cancelled after {age_hours:.1f} hours. "
+                    f"Resuming buy cycle."
+                )
+                clear_pending_sell()
+                
+                send_trade_email(
+                    f"[{instId}] Stale SELL Order Cancelled",
+                    f"""Dear User,
+
+The pending SELL order has been cancelled after {age_hours:.1f} hours without filling.
+
+- Order ID: {order_id}
+- Sell Price: ${price:,.2f}
+
+The bot will now resume monitoring for buy opportunities. Your existing {base_ccy} position remains intact and will be sold when the profit target is reached again.
+
+This prevents the bot from being stuck waiting for an unreachable sell price.
+"""
+                )
+                return True
+            else:
+                # Order already filled/cancelled, just clean up
+                clear_pending_sell()
+                
+    except Exception as e:
+        logging.error(f"Error checking stale SELL: {e}")
+    
+    return False
 
 
 # =======================
@@ -906,7 +965,7 @@ def place_limit_sell_all(price: float):
 
 
 def check_sell_filled():
-    order_id, px = read_pending_sell()
+    order_id, price, _ = read_pending_sell()
     if not order_id:
         return False
 
@@ -918,7 +977,7 @@ def check_sell_filled():
             filled_qty = float(data.get("fillSz", 0))
             now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-            append_trade(now, "SELL", px, filled_qty)
+            append_trade(now, "SELL", price, filled_qty)
 
             # Full cycle reset
             full_cycle_reset()
@@ -930,7 +989,7 @@ def check_sell_filled():
 A PROFIT SELL order has been filled:
 
 - Instrument: {instId}
-- Price:      ${px:,.6f}
+- Price:      ${price:,.6f}
 - Quantity:   {filled_qty} {base_ccy}
 - Time:       {now}
 
@@ -949,7 +1008,7 @@ Cycle has been reset. Bot is ready for the next dip-buy cycle.
 
 def check_and_place_profit_sell():
     cleanup_stale_pending_sell()
-    sell_order_id, _ = read_pending_sell()
+    sell_order_id, _, _ = read_pending_sell()
     if sell_order_id:
         logging.info(f"🟠 SELL blocked: pending SELL ordId exists ({sell_order_id})")
         return
@@ -984,7 +1043,7 @@ def check_and_place_profit_sell():
 def check_and_reset_cycle():
     asset_balance = get_asset_balance(base_ccy)
     buy_order_id, _ = read_pending_order()
-    sell_order_id, _ = read_pending_sell()
+    sell_order_id, _, _ = read_pending_sell()
 
     try:
         open_orders = tradeAPI.get_order_list(instType="SPOT", instId=instId).get("data", [])
@@ -1037,7 +1096,7 @@ def main():
     last_pending_log = 0
 
     logging.info(f"🚀 Starting OKX Dip-Buy Bot v2 (instId={instId}, bar={interval_okx})...")
-    logging.info("📋 Features: Crash Detection, Progressive Drop Requirements, Capital Preservation")
+    logging.info("📋 Features: Crash Detection, Progressive Drop Requirements, Capital Preservation, Stale Sell Timeout")
 
     cleanup_stale_pending_sell()
 
@@ -1056,6 +1115,12 @@ def main():
             if check_sell_filled():
                 send_weekly_report()
                 continue
+
+            # =========================================================
+            # 1b) Cancel stale SELL if open too long
+            # =========================================================
+            if cancel_stale_sell_order():
+                continue  # Restart loop to re-evaluate market
 
             # =========================================================
             # 2) Place profit SELL if target hit (every 5 minutes)
@@ -1191,7 +1256,7 @@ Cycle stats so far:
             # =========================================================
             # 5) No pending BUY → Evaluate new BUY opportunity
             # =========================================================
-            sell_order_id, _ = read_pending_sell()
+            sell_order_id, _, _ = read_pending_sell()
             if sell_order_id:
                 logging.info("🟠 BUY skipped: SELL order is active")
                 time.sleep(60)
