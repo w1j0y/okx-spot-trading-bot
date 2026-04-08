@@ -117,6 +117,7 @@ def load_config(path: str) -> dict:
     api_key = okx.get("api_key")
     api_secret = okx.get("api_secret")
     passphrase = okx.get("passphrase")
+    domain = okx.get("domain", "https://www.okx.com")
     if not (api_key and api_secret and passphrase):
         raise SystemExit("config.json missing okx.api_key / okx.api_secret / okx.passphrase")
 
@@ -145,7 +146,12 @@ def load_config(path: str) -> dict:
     quote_ccy = instId.split("-")[1] if "-" in instId else "USDT"
 
     return {
-        "okx": {"api_key": api_key, "api_secret": api_secret, "passphrase": passphrase},
+        "okx": {
+            "api_key": api_key,
+            "api_secret": api_secret,
+            "passphrase": passphrase,
+            "domain": domain
+        },
         "trade": {
             "instId": instId,
             "base_ccy": base_ccy,
@@ -232,10 +238,10 @@ def send_weekly_report_email(subject: str, body: str, csv_path: str):
 # OKX Clients
 # =======================
 flag = "1" if use_demo else "0"
-marketAPI  = MarketAPI(cfg["okx"]["api_key"], cfg["okx"]["api_secret"], cfg["okx"]["passphrase"], False, flag)
-tradeAPI   = TradeAPI(cfg["okx"]["api_key"], cfg["okx"]["api_secret"], cfg["okx"]["passphrase"], False, flag)
-accountAPI = AccountAPI(cfg["okx"]["api_key"], cfg["okx"]["api_secret"], cfg["okx"]["passphrase"], False, flag)
-publicAPI  = PublicAPI(cfg["okx"]["api_key"], cfg["okx"]["api_secret"], cfg["okx"]["passphrase"], False, flag)
+marketAPI  = MarketAPI(cfg["okx"]["api_key"], cfg["okx"]["api_secret"], cfg["okx"]["passphrase"], False, flag, domain=cfg["okx"]["domain"])
+tradeAPI   = TradeAPI(cfg["okx"]["api_key"], cfg["okx"]["api_secret"], cfg["okx"]["passphrase"], False, flag, domain=cfg["okx"]["domain"])
+accountAPI = AccountAPI(cfg["okx"]["api_key"], cfg["okx"]["api_secret"], cfg["okx"]["passphrase"], False, flag, domain=cfg["okx"]["domain"])
+publicAPI  = PublicAPI(cfg["okx"]["api_key"], cfg["okx"]["api_secret"], cfg["okx"]["passphrase"], False, flag, domain=cfg["okx"]["domain"])
 
 
 # =======================
